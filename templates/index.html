@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLN Mobile - Sentiment Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .pln-blue { background-color: #00A2E9; }
+        .pln-dark { background-color: #00549B; }
+        .text-pln { color: #00549B; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+
+    <!-- Navbar -->
+    <nav class="pln-dark p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white p-2 rounded-lg">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Logo_PLN.png" alt="PLN Logo" class="h-8">
+                </div>
+                <span class="text-white font-bold text-xl tracking-wider">PLN Mobile <span class="font-light">AI Analyzer</span></span>
+            </div>
+            <div class="text-white text-sm italic">SVM Balanced Engine v1.0</div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto mt-10 p-4">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Input Section -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-pln font-bold text-lg mb-4"><i class="fa-solid fa-magnifying-glass-chart mr-2"></i> Analisis Sentimen</h2>
+                <form id="analyzeForm" class="space-y-4">
+                    <textarea id="inputText" name="text" rows="4" 
+                        class="w-full p-4 border rounded-xl focus:ring-2 focus:ring-blue-400 outline-none transition-all"
+                        placeholder="Masukkan review atau keluhan pelanggan PLN Mobile di sini..."></textarea>
+                    <button type="submit" class="w-full pln-blue hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-all transform hover:scale-[1.02]">
+                        Proses Analisis
+                    </button>
+                </form>
+
+                <!-- Result Card -->
+                <div id="resultCard" class="hidden mt-6 p-4 rounded-xl border-l-4">
+                    <p class="text-xs uppercase font-bold text-gray-500">Hasil Prediksi</p>
+                    <h3 id="sentimentResult" class="text-2xl font-black my-1"></h3>
+                    <p id="confidenceLevel" class="text-sm text-gray-600"></p>
+                </div>
+            </div>
+
+            <!-- Analytics Dashboard -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border flex items-center space-x-4">
+                        <div class="p-3 bg-green-100 text-green-600 rounded-full"><i class="fa-solid fa-face-smile fa-xl"></i></div>
+                        <div><p class="text-gray-500 text-xs">Positif</p><p class="font-bold text-lg" id="posCount">0</p></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border flex items-center space-x-4">
+                        <div class="p-3 bg-gray-100 text-gray-400 rounded-full"><i class="fa-solid fa-face-meh fa-xl"></i></div>
+                        <div><p class="text-gray-500 text-xs">Netral</p><p class="font-bold text-lg" id="neuCount">0</p></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border flex items-center space-x-4">
+                        <div class="p-3 bg-red-100 text-red-600 rounded-full"><i class="fa-solid fa-face-frown fa-xl"></i></div>
+                        <div><p class="text-gray-500 text-xs">Negatif</p><p class="font-bold text-lg" id="negCount">0</p></div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-pln font-bold text-lg mb-6">Distribusi Sentimen Real-time</h2>
+                    <div class="h-64">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Inisialisasi Chart
+        const ctx = document.getElementById('sentimentChart').getContext('2d');
+        let stats = { positive: 0, neutral: 0, negative: 0 };
+        
+        const myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Positif', 'Netral', 'Negatif'],
+                datasets: [{
+                    label: 'Jumlah Review',
+                    data: [0, 0, 0],
+                    backgroundColor: ['#10B981', '#9CA3AF', '#EF4444'],
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        document.getElementById('analyzeForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('/predict', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            // Update UI Result
+            const card = document.getElementById('resultCard');
+            const sentText = document.getElementById('sentimentResult');
+            card.classList.remove('hidden', 'bg-green-50', 'bg-red-50', 'bg-gray-50', 'border-green-500', 'border-red-500', 'border-gray-500');
+            
+            if(data.sentiment === 'positive') {
+                card.classList.add('bg-green-50', 'border-green-500');
+                sentText.innerText = "🟢 POSITIF";
+                sentText.className = "text-2xl font-black my-1 text-green-700";
+                stats.positive++;
+            } else if(data.sentiment === 'negative') {
+                card.classList.add('bg-red-50', 'border-red-500');
+                sentText.innerText = "🔴 NEGATIF";
+                sentText.className = "text-2xl font-black my-1 text-red-700";
+                stats.negative++;
+            } else {
+                card.classList.add('bg-gray-50', 'border-gray-500');
+                sentText.innerText = "⚪ NETRAL";
+                sentText.className = "text-2xl font-black my-1 text-gray-700";
+                stats.neutral++;
+            }
+
+            document.getElementById('confidenceLevel').innerText = `Confidence Score: ${data.confidence}`;
+            
+            // Update Dashboard
+            document.getElementById('posCount').innerText = stats.positive;
+            document.getElementById('neuCount').innerText = stats.neutral;
+            document.getElementById('negCount').innerText = stats.negative;
+            
+            myChart.data.datasets[0].data = [stats.positive, stats.neutral, stats.negative];
+            myChart.update();
+        };
+    </script>
+</body>
+</html>

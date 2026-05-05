@@ -33,7 +33,7 @@ def preprocess_inference(text):
 
 @app.get('/')
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.post("/predict")
 async def predict(text: str = Form(...)):

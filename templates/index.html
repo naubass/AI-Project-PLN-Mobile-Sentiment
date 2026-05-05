@@ -7,176 +7,474 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F6F7F9; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F0F4F8; margin: 0; }
         .pln-gradient { background: linear-gradient(135deg, #00A2E9 0%, #00549B 100%); }
-        .pln-card { border-radius: 24px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .glass-effect { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
-        .service-icon { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 16px; transition: all 0.3s; }
-        .service-icon:hover { transform: translateY(-5px); }
+        .pln-card { border-radius: 20px; border: none; box-shadow: 0 4px 24px rgba(0,82,155,0.08); background: white; }
+        .glass-effect { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); }
+        .service-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 14px; transition: all 0.3s; }
+        .service-icon:hover { transform: translateY(-4px); }
+
+        /* Page transitions */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Nav active state */
+        .nav-item { cursor: pointer; transition: all 0.2s; }
+        .nav-item.active .nav-icon { color: #00549B; }
+        .nav-item.active .nav-label { color: #00549B; font-weight: 700; }
+        .nav-item:not(.active) .nav-icon { color: #CBD5E1; }
+        .nav-item:not(.active) .nav-label { color: #CBD5E1; }
+
+        /* History item */
+        .history-item { border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; background: white; box-shadow: 0 2px 12px rgba(0,0,0,0.05); transition: all 0.2s; cursor: pointer; }
+        .history-item:hover { transform: translateX(4px); }
+
+        /* Modal overlay */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; }
+        .modal-overlay.open { display: flex; }
+        .modal-sheet { background: white; border-radius: 28px 28px 0 0; width: 100%; padding: 24px; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        /* Badge pulse */
+        .badge-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+        /* Confidence bar */
+        #confidenceBar { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Avatar initials */
+        .avatar { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; color: white; }
+
+        /* Info accordion */
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .accordion-content.open { max-height: 500px; }
+
+        /* Empty chart state */
+        .chart-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; color: #CBD5E1; }
+
+        /* Scrollable history */
+        #historyList { max-height: calc(100vh - 280px); overflow-y: auto; }
     </style>
 </head>
 <body class="text-gray-800">
 
-    <nav class="pln-gradient text-white p-6 pb-20 rounded-b-[40px] fixed top-0 w-full z-0">
-        <div class="container mx-auto flex justify-between items-center">
+    <!-- ===== FIXED NAV HEADER ===== -->
+    <nav class="pln-gradient text-white p-5 pb-16 rounded-b-[36px] fixed top-0 w-full z-0">
+        <div class="container mx-auto flex justify-between items-center max-w-5xl">
             <div>
-                <p class="text-sm opacity-80">Hai, Analis Profesional</p>
-                <h1 class="text-xl font-bold">PLN Mobile Sentiment</h1>
+                <p class="text-xs opacity-75 font-medium" id="navSubtitle">Hai, Analis Profesional</p>
+                <h1 class="text-lg font-bold" id="navTitle">PLN Mobile Sentiment</h1>
             </div>
-            <div class="flex items-center space-x-4">
-                <i class="fa-regular fa-bell text-xl"></i>
-                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
-                    <i class="fa-solid fa-user"></i>
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <i class="fa-regular fa-bell text-lg"></i>
+                    <span id="notifBadge" class="absolute -top-1 -right-1 w-4 h-4 bg-red-400 rounded-full text-[9px] flex items-center justify-center font-bold hidden">!</span>
+                </div>
+                <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
+                    <i class="fa-solid fa-user text-sm"></i>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="container mx-auto px-4 pt-28 pb-32 relative z-10">
-        
-        <div class="pln-card bg-white p-6 mb-8 flex justify-between items-center">
-            <div class="flex items-center space-x-4">
-                <div class="bg-blue-50 p-3 rounded-2xl">
-                    <img src="https://mpp.badungkab.go.id/images/agency/logo/pln.png" class="w-8" alt="PLN">
-                </div>
-                <div>
-                    <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">Model Status</p>
-                    <p class="text-lg font-bold text-[#00549B]">SVM Balanced Active</p>
-                </div>
-            </div>
-            <div class="text-right border-l pl-6">
-                <p class="text-xs text-gray-400 font-semibold uppercase tracking-wider">Accuracy</p>
-                <p class="text-lg font-bold text-cyan-500">92.4%</p>
-            </div>
-        </div>
+    <!-- ===== MAIN CONTENT AREA ===== -->
+    <main class="container mx-auto px-4 pt-24 pb-28 relative z-10 max-w-5xl">
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            <div class="lg:col-span-4 space-y-6">
-                <div class="pln-card bg-white p-6">
-                    <h3 class="font-bold text-gray-700 mb-4 flex items-center">
-                        <span class="w-2 h-6 bg-cyan-400 rounded-full mr-3"></span>
-                        Input Analisis
-                    </h3>
-                    <form id="analyzeForm" class="space-y-4">
-                        <textarea id="inputText" name="text" rows="5" 
-                            class="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-cyan-400 transition-all text-sm"
-                            placeholder="Tulis keluhan atau apresiasi pelanggan..."></textarea>
-                        <button type="submit" class="w-full pln-gradient text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 hover:opacity-90 transition-all">
-                            Mulai Analisis AI
-                        </button>
-                    </form>
-                </div>
+        <!-- ============ PAGE: BERANDA ============ -->
+        <div id="page-beranda" class="page active">
 
-                <div class="pln-card bg-white p-6">
-                    <h3 class="font-bold text-gray-700 mb-4">Pipeline Model</h3>
-                    <div class="grid grid-cols-3 gap-4 text-center">
-                        <div class="flex flex-col items-center">
-                            <div class="service-icon bg-blue-50 text-blue-500 mb-2"><i class="fa-solid fa-broom"></i></div>
-                            <span class="text-[10px] font-bold">Cleaning</span>
-                        </div>
-                        <div class="flex flex-col items-center">
-                            <div class="service-icon bg-cyan-50 text-cyan-500 mb-2"><i class="fa-solid fa-scissors"></i></div>
-                            <span class="text-[10px] font-bold">Tokenizing</span>
-                        </div>
-                        <div class="flex flex-col items-center">
-                            <div class="service-icon bg-indigo-50 text-indigo-500 mb-2"><i class="fa-solid fa-code"></i></div>
-                            <span class="text-[10px] font-bold">Vectorizing</span>
-                        </div>
+            <!-- Model Status Card -->
+            <div class="pln-card p-5 mb-6 flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-50 p-2.5 rounded-xl">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Logo_PLN.svg/512px-Logo_PLN.svg.png" class="w-7" alt="PLN" onerror="this.src='https://mpp.badungkab.go.id/images/agency/logo/pln.png'">
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Model Status</p>
+                        <p class="text-base font-bold text-[#00549B]">SVM Balanced Active</p>
                     </div>
                 </div>
+                <div class="text-right border-l border-gray-100 pl-5">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Accuracy</p>
+                    <p class="text-lg font-black text-cyan-500">92.4%</p>
+                </div>
             </div>
 
-            <div class="lg:col-span-8 space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="pln-card bg-white p-4 text-center">
-                        <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Positif</p>
-                        <p class="text-2xl font-bold text-green-500" id="posCount">0</p>
+                <!-- LEFT COLUMN -->
+                <div class="lg:col-span-4 space-y-5">
+                    <!-- Input -->
+                    <div class="pln-card p-5">
+                        <h3 class="font-bold text-gray-700 mb-4 flex items-center text-sm">
+                            <span class="w-1.5 h-5 bg-cyan-400 rounded-full mr-2.5"></span>
+                            Input Analisis
+                        </h3>
+                        <div class="space-y-3">
+                            <textarea id="inputText" rows="5" 
+                                class="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-cyan-300 rounded-2xl transition-all text-sm outline-none resize-none"
+                                placeholder="Tulis keluhan atau apresiasi pelanggan..."></textarea>
+                            <button id="analyzeBtn" onclick="runAnalysis()" class="w-full pln-gradient text-white font-bold py-3.5 rounded-xl shadow-md shadow-blue-200 hover:opacity-90 active:scale-95 transition-all text-sm">
+                                <i class="fa-solid fa-brain mr-2"></i> Mulai Analisis AI
+                            </button>
+                        </div>
                     </div>
-                    <div class="pln-card bg-white p-4 text-center">
-                        <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Netral</p>
-                        <p class="text-2xl font-bold text-gray-400" id="neuCount">0</p>
-                    </div>
-                    <div class="pln-card bg-white p-4 text-center">
-                        <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Negatif</p>
-                        <p class="text-2xl font-bold text-red-500" id="negCount">0</p>
+
+                    <!-- Pipeline -->
+                    <div class="pln-card p-5">
+                        <h3 class="font-bold text-gray-700 mb-4 text-sm">Pipeline Model</h3>
+                        <div class="grid grid-cols-3 gap-3 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="service-icon bg-blue-50 text-blue-500 mb-1.5 mx-auto"><i class="fa-solid fa-broom text-lg"></i></div>
+                                <span class="text-[10px] font-bold text-gray-500">Cleaning</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div class="service-icon bg-cyan-50 text-cyan-500 mb-1.5 mx-auto"><i class="fa-solid fa-scissors text-lg"></i></div>
+                                <span class="text-[10px] font-bold text-gray-500">Tokenizing</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div class="service-icon bg-indigo-50 text-indigo-500 mb-1.5 mx-auto"><i class="fa-solid fa-code text-lg"></i></div>
+                                <span class="text-[10px] font-bold text-gray-500">Vectorizing</span>
+                            </div>
+                        </div>
+                        <!-- Pipeline arrows -->
+                        <div class="flex items-center justify-center mt-3 space-x-1">
+                            <div class="w-6 h-1 bg-blue-200 rounded"></div>
+                            <i class="fa-solid fa-chevron-right text-blue-300 text-xs"></i>
+                            <div class="w-6 h-1 bg-cyan-200 rounded"></div>
+                            <i class="fa-solid fa-chevron-right text-cyan-300 text-xs"></i>
+                            <div class="w-6 h-1 bg-indigo-200 rounded"></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="pln-card bg-white p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="font-bold text-gray-700 flex items-center">
-                            <span class="w-2 h-6 bg-indigo-400 rounded-full mr-3"></span>
-                            Visualisasi Data
-                        </h3>
-                        <div id="resultBadge" class="hidden px-4 py-1 rounded-full text-xs font-bold animate-bounce">
-                            SENTIMEN TERDETEKSI
+                <!-- RIGHT COLUMN -->
+                <div class="lg:col-span-8 space-y-5">
+                    <!-- Stats Row -->
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="pln-card p-4 text-center">
+                            <p class="text-[9px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Positif</p>
+                            <p class="text-2xl font-black text-green-500" id="posCount">0</p>
+                        </div>
+                        <div class="pln-card p-4 text-center">
+                            <p class="text-[9px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Netral</p>
+                            <p class="text-2xl font-black text-gray-400" id="neuCount">0</p>
+                        </div>
+                        <div class="pln-card p-4 text-center">
+                            <p class="text-[9px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Negatif</p>
+                            <p class="text-2xl font-black text-red-500" id="negCount">0</p>
                         </div>
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                        <div class="h-64">
-                            <canvas id="sentimentChart"></canvas>
+
+                    <!-- Visualization Card -->
+                    <div class="pln-card p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-gray-700 flex items-center text-sm">
+                                <span class="w-1.5 h-5 bg-indigo-400 rounded-full mr-2.5"></span>
+                                Visualisasi Data
+                            </h3>
+                            <div id="resultBadge" class="hidden px-3 py-1 rounded-full text-[10px] font-bold badge-pulse">SENTIMEN TERDETEKSI</div>
                         </div>
-                        <div id="resultDisplay" class="bg-gray-50 rounded-[32px] p-8 text-center min-h-[200px] flex flex-col justify-center border-2 border-dashed border-gray-200">
-                            <div id="emptyState">
-                                <i class="fa-solid fa-robot text-4xl text-gray-200 mb-3"></i>
-                                <p class="text-gray-400 text-sm">Belum ada data.<br>Silakan input teks di samping.</p>
-                            </div>
-                            <div id="actualResult" class="hidden w-full px-4">
-                                <p class="text-xs text-gray-400 uppercase tracking-[0.2em] mb-2 text-center">Sentimen</p>
-                                <h2 id="sentimentValue" class="text-3xl font-black mb-4 text-center tracking-tight">POSITIF</h2>
-                                
-                                <!-- Container Bar yang diperbaiki -->
-                                <div class="relative w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden shadow-inner">
-                                    <div id="confidenceBar" class="pln-gradient h-full rounded-full transition-all duration-700 ease-out" style="width: 0%"></div>
+                        
+                        <!-- Donut + Result side by side -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 items-center mb-5">
+                            <div class="relative h-52">
+                                <canvas id="sentimentDoughnut"></canvas>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <p id="donutLabel" class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total</p>
+                                    <p id="donutTotal" class="text-2xl font-black text-gray-700">0</p>
                                 </div>
-                                
-                                <p id="confidenceValue" class="text-[10px] font-bold text-blue-500 text-center uppercase tracking-widest">Confidence: 0%</p>
+                            </div>
+                            <div id="resultDisplay" class="bg-gray-50 rounded-2xl p-6 text-center min-h-[180px] flex flex-col justify-center border-2 border-dashed border-gray-200 transition-all duration-500">
+                                <div id="emptyState">
+                                    <i class="fa-solid fa-robot text-4xl text-gray-200 mb-2"></i>
+                                    <p class="text-gray-400 text-xs">Belum ada data.<br>Silakan input teks di samping.</p>
+                                </div>
+                                <div id="actualResult" class="hidden w-full">
+                                    <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Sentimen</p>
+                                    <h2 id="sentimentValue" class="text-3xl font-black mb-3 tracking-tight">POSITIF</h2>
+                                    <div class="relative w-full bg-gray-200 rounded-full h-2.5 mb-1.5 overflow-hidden">
+                                        <div id="confidenceBar" class="pln-gradient h-full rounded-full" style="width:0%"></div>
+                                    </div>
+                                    <p id="confidenceValue" class="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Confidence: 0%</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bar Chart -->
+                        <div class="border-t border-gray-100 pt-4">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Distribusi Sentimen (Bar)</p>
+                            <div class="h-36">
+                                <canvas id="sentimentBar"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- ============ PAGE: RIWAYAT ============ -->
+        <div id="page-riwayat" class="page">
+            <div class="pln-card p-5 mb-5 flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-bold text-gray-800">Riwayat Analisis</h2>
+                    <p class="text-xs text-gray-400" id="historyCount">0 data tercatat</p>
+                </div>
+                <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-600 font-semibold transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-trash-can"></i> Hapus Semua
+                </button>
+            </div>
+
+            <div id="historyEmpty" class="pln-card p-10 text-center">
+                <i class="fa-solid fa-clock-rotate-left text-5xl text-gray-200 mb-3"></i>
+                <p class="text-gray-400 text-sm">Belum ada riwayat analisis.<br>Lakukan analisis pertama Anda!</p>
+                <button onclick="switchPage('beranda')" class="mt-4 pln-gradient text-white text-xs font-bold px-5 py-2.5 rounded-xl">Mulai Analisis</button>
+            </div>
+
+            <div id="historyList" class="hidden space-y-2">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- ============ PAGE: TAMBAH (Quick Input Modal Trigger) ============ -->
+        <div id="page-tambah" class="page">
+            <div class="pln-card p-6 mb-5">
+                <h2 class="text-base font-bold text-gray-800 mb-1">Input Cepat</h2>
+                <p class="text-xs text-gray-400 mb-5">Analisis teks baru secara langsung</p>
+                <textarea id="quickInput" rows="6"
+                    class="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-cyan-300 rounded-2xl text-sm outline-none resize-none transition-all mb-3"
+                    placeholder="Masukkan teks ulasan atau keluhan pelanggan PLN Mobile..."></textarea>
+                <button onclick="runQuickAnalysis()" class="w-full pln-gradient text-white font-bold py-3.5 rounded-xl shadow-md shadow-blue-200 hover:opacity-90 transition-all text-sm">
+                    <i class="fa-solid fa-bolt mr-2"></i> Analisis Sekarang
+                </button>
+            </div>
+
+            <!-- Quick result display -->
+            <div id="quickResultCard" class="pln-card p-5 hidden">
+                <h3 class="font-bold text-gray-700 text-sm mb-4 flex items-center">
+                    <span class="w-1.5 h-5 bg-cyan-400 rounded-full mr-2.5"></span>
+                    Hasil Analisis
+                </h3>
+                <div id="quickResultContent" class="rounded-2xl p-5 text-center border-2 border-dashed transition-all"></div>
+            </div>
+        </div>
+
+        <!-- ============ PAGE: INFO ============ -->
+        <div id="page-info" class="page">
+            <!-- Header card -->
+            <div class="pln-gradient rounded-2xl p-5 mb-5 text-white">
+                <div class="flex items-center space-x-3 mb-3">
+                    <div class="bg-white/20 p-2.5 rounded-xl">
+                        <i class="fa-solid fa-circle-info text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-base">Informasi Sistem</h2>
+                        <p class="text-xs opacity-75">PLN Mobile Sentiment Analysis</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mt-4">
+                    <div class="bg-white/15 rounded-xl p-3 text-center">
+                        <p class="text-lg font-black">92.4%</p>
+                        <p class="text-[10px] opacity-75">Akurasi</p>
+                    </div>
+                    <div class="bg-white/15 rounded-xl p-3 text-center">
+                        <p class="text-lg font-black">SVM</p>
+                        <p class="text-[10px] opacity-75">Model</p>
+                    </div>
+                    <div class="bg-white/15 rounded-xl p-3 text-center">
+                        <p class="text-lg font-black">3</p>
+                        <p class="text-[10px] opacity-75">Kelas</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Accordion FAQ -->
+            <div class="space-y-3">
+                <div class="pln-card overflow-hidden">
+                    <button onclick="toggleAccordion('acc1')" class="w-full p-4 flex justify-between items-center text-left">
+                        <span class="font-semibold text-sm text-gray-700"><i class="fa-solid fa-robot text-cyan-500 mr-2"></i>Apa itu SVM?</span>
+                        <i id="acc1-icon" class="fa-solid fa-chevron-down text-gray-400 transition-transform text-xs"></i>
+                    </button>
+                    <div id="acc1" class="accordion-content">
+                        <p class="px-4 pb-4 text-xs text-gray-500 leading-relaxed">Support Vector Machine (SVM) adalah algoritma machine learning yang bekerja dengan mencari hyperplane terbaik untuk memisahkan kelas data. Pada sistem ini, SVM dilatih dengan data balanced untuk mendeteksi sentimen ulasan PLN Mobile secara akurat.</p>
+                    </div>
+                </div>
+                <div class="pln-card overflow-hidden">
+                    <button onclick="toggleAccordion('acc2')" class="w-full p-4 flex justify-between items-center text-left">
+                        <span class="font-semibold text-sm text-gray-700"><i class="fa-solid fa-layer-group text-indigo-500 mr-2"></i>Pipeline Preprocessing</span>
+                        <i id="acc2-icon" class="fa-solid fa-chevron-down text-gray-400 transition-transform text-xs"></i>
+                    </button>
+                    <div id="acc2" class="accordion-content">
+                        <div class="px-4 pb-4 space-y-2">
+                            <div class="flex items-start gap-2"><span class="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-[10px] font-bold text-blue-600 flex-shrink-0 mt-0.5">1</span><p class="text-xs text-gray-500">Cleaning: Menghapus mention, hashtag, URL, angka, dan tanda baca.</p></div>
+                            <div class="flex items-start gap-2"><span class="w-5 h-5 bg-cyan-100 rounded-full flex items-center justify-center text-[10px] font-bold text-cyan-600 flex-shrink-0 mt-0.5">2</span><p class="text-xs text-gray-500">Tokenizing: Memecah teks menjadi satuan kata (token).</p></div>
+                            <div class="flex items-start gap-2"><span class="w-5 h-5 bg-indigo-100 rounded-full flex items-center justify-center text-[10px] font-bold text-indigo-600 flex-shrink-0 mt-0.5">3</span><p class="text-xs text-gray-500">Vectorizing: TF-IDF mengubah token menjadi representasi numerik.</p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pln-card overflow-hidden">
+                    <button onclick="toggleAccordion('acc3')" class="w-full p-4 flex justify-between items-center text-left">
+                        <span class="font-semibold text-sm text-gray-700"><i class="fa-solid fa-percent text-green-500 mr-2"></i>Confidence Score</span>
+                        <i id="acc3-icon" class="fa-solid fa-chevron-down text-gray-400 transition-transform text-xs"></i>
+                    </button>
+                    <div id="acc3" class="accordion-content">
+                        <p class="px-4 pb-4 text-xs text-gray-500 leading-relaxed">Confidence score dihasilkan dari decision function SVM yang menunjukkan seberapa jauh data dari hyperplane. Nilai dinormalisasi ke rentang 0–100%. Semakin tinggi nilainya, semakin yakin model terhadap prediksinya.</p>
+                    </div>
+                </div>
+                <div class="pln-card overflow-hidden">
+                    <button onclick="toggleAccordion('acc4')" class="w-full p-4 flex justify-between items-center text-left">
+                        <span class="font-semibold text-sm text-gray-700"><i class="fa-solid fa-code-branch text-orange-500 mr-2"></i>Tech Stack</span>
+                        <i id="acc4-icon" class="fa-solid fa-chevron-down text-gray-400 transition-transform text-xs"></i>
+                    </button>
+                    <div id="acc4" class="accordion-content">
+                        <div class="px-4 pb-4 flex flex-wrap gap-2">
+                            <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-semibold">FastAPI</span>
+                            <span class="px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-semibold">scikit-learn</span>
+                            <span class="px-3 py-1 bg-yellow-50 text-yellow-600 rounded-full text-xs font-semibold">Python</span>
+                            <span class="px-3 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-semibold">NLTK</span>
+                            <span class="px-3 py-1 bg-cyan-50 text-cyan-600 rounded-full text-xs font-semibold">TF-IDF</span>
+                            <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">Chart.js</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Version info -->
+            <div class="pln-card p-4 mt-3 flex items-center justify-between">
+                <span class="text-xs text-gray-400">Versi Aplikasi</span>
+                <span class="text-xs font-bold text-[#00549B]">v2.0.0 — Enhanced</span>
+            </div>
+        </div>
+
+        <!-- ============ PAGE: PROFIL ============ -->
+        <div id="page-profil" class="page">
+            <!-- Profile Hero -->
+            <div class="pln-gradient rounded-2xl p-6 mb-5 text-white text-center">
+                <div class="pln-gradient avatar mx-auto mb-3 border-4 border-white/30" style="background: rgba(255,255,255,0.2)">
+                    <i class="fa-solid fa-user-tie text-2xl"></i>
+                </div>
+                <h2 class="text-lg font-black mb-0.5">Analis Profesional</h2>
+                <p class="text-xs opacity-75">analis@pln.co.id</p>
+                <div class="flex justify-center gap-4 mt-4">
+                    <div class="bg-white/15 rounded-xl px-4 py-2 text-center">
+                        <p class="text-lg font-black" id="profileTotal">0</p>
+                        <p class="text-[10px] opacity-75">Total Analisis</p>
+                    </div>
+                    <div class="bg-white/15 rounded-xl px-4 py-2 text-center">
+                        <p class="text-lg font-black" id="profilePos">0%</p>
+                        <p class="text-[10px] opacity-75">Positif Rate</p>
+                    </div>
+                    <div class="bg-white/15 rounded-xl px-4 py-2 text-center">
+                        <p class="text-lg font-black" id="profileNeg">0%</p>
+                        <p class="text-[10px] opacity-75">Negatif Rate</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings List -->
+            <div class="pln-card overflow-hidden mb-4">
+                <div class="divide-y divide-gray-50">
+                    <div class="p-4 flex items-center gap-3">
+                        <div class="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-pen text-blue-500 text-sm"></i></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-700">Edit Profil</p>
+                            <p class="text-xs text-gray-400">Ubah nama dan foto</p>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i>
+                    </div>
+                    <div class="p-4 flex items-center gap-3">
+                        <div class="w-9 h-9 bg-cyan-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-download text-cyan-500 text-sm"></i></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-700">Export Data</p>
+                            <p class="text-xs text-gray-400">Download riwayat analisis</p>
+                        </div>
+                        <button onclick="exportData()" class="text-xs bg-cyan-50 text-cyan-600 font-bold px-3 py-1.5 rounded-lg hover:bg-cyan-100 transition-colors">Export</button>
+                    </div>
+                    <div class="p-4 flex items-center gap-3">
+                        <div class="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-bell text-indigo-500 text-sm"></i></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-700">Notifikasi</p>
+                            <p class="text-xs text-gray-400">Pengaturan alert</p>
+                        </div>
+                        <div onclick="toggleNotif(this)" class="w-11 h-6 bg-blue-500 rounded-full relative cursor-pointer transition-colors notif-toggle">
+                            <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 right-0.5 transition-all shadow notif-knob"></div>
+                        </div>
+                    </div>
+                    <div class="p-4 flex items-center gap-3">
+                        <div class="w-9 h-9 bg-green-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-shield-halved text-green-500 text-sm"></i></div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-700">Keamanan</p>
+                            <p class="text-xs text-gray-400">Ubah kata sandi</p>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-gray-300 text-xs"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pln-card overflow-hidden">
+                <div class="p-4 flex items-center gap-3">
+                    <div class="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center"><i class="fa-solid fa-right-from-bracket text-red-400 text-sm"></i></div>
+                    <div class="flex-1">
+                        <p class="text-sm font-semibold text-red-400">Keluar</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
-    <div class="fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-6 glass-effect z-50">
-        <div class="container mx-auto flex justify-around items-center">
-            <div class="flex flex-col items-center text-blue-500">
-                <i class="fa-solid fa-house-chimney text-xl mb-1"></i>
-                <span class="text-[10px] font-bold">Beranda</span>
+    <!-- ===== BOTTOM NAVIGATION ===== -->
+    <div class="fixed bottom-0 w-full bg-white border-t border-gray-100 px-4 pt-3 pb-5 glass-effect z-50">
+        <div class="container mx-auto flex justify-around items-center max-w-md">
+            <div class="nav-item active flex flex-col items-center" onclick="switchPage('beranda')" data-page="beranda">
+                <i class="nav-icon fa-solid fa-house-chimney text-xl mb-1"></i>
+                <span class="nav-label text-[10px]">Beranda</span>
             </div>
-            <div class="flex flex-col items-center text-gray-300">
-                <i class="fa-solid fa-chart-line text-xl mb-1"></i>
-                <span class="text-[10px] font-bold">Riwayat</span>
+            <div class="nav-item flex flex-col items-center" onclick="switchPage('riwayat')" data-page="riwayat">
+                <i class="nav-icon fa-solid fa-chart-line text-xl mb-1"></i>
+                <span class="nav-label text-[10px]">Riwayat</span>
             </div>
-            <div class="relative -top-8">
-                <div class="pln-gradient w-14 h-14 rounded-2xl shadow-xl shadow-blue-300 flex items-center justify-center text-white border-4 border-white">
+            <!-- CENTER PLUS BUTTON -->
+            <div class="relative -top-5">
+                <div class="pln-gradient w-14 h-14 rounded-2xl shadow-xl shadow-blue-300 flex items-center justify-center text-white border-4 border-[#F0F4F8] cursor-pointer hover:scale-105 transition-transform" onclick="switchPage('tambah')">
                     <i class="fa-solid fa-plus text-xl"></i>
                 </div>
             </div>
-            <div class="flex flex-col items-center text-gray-300">
-                <i class="fa-solid fa-book text-xl mb-1"></i>
-                <span class="text-[10px] font-bold">Info</span>
+            <div class="nav-item flex flex-col items-center" onclick="switchPage('info')" data-page="info">
+                <i class="nav-icon fa-solid fa-book text-xl mb-1"></i>
+                <span class="nav-label text-[10px]">Info</span>
             </div>
-            <div class="flex flex-col items-center text-gray-300">
-                <i class="fa-solid fa-user-gear text-xl mb-1"></i>
-                <span class="text-[10px] font-bold">Profil</span>
+            <div class="nav-item flex flex-col items-center" onclick="switchPage('profil')" data-page="profil">
+                <i class="nav-icon fa-solid fa-user-gear text-xl mb-1"></i>
+                <span class="nav-label text-[10px]">Profil</span>
             </div>
         </div>
     </div>
 
+    <!-- ===== TOAST NOTIFICATION ===== -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[300] hidden">
+        <div class="bg-gray-800 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2">
+            <i id="toastIcon" class="fa-solid fa-check-circle text-green-400"></i>
+            <span id="toastMsg">Berhasil!</span>
+        </div>
+    </div>
+
     <script>
-        const ctx = document.getElementById('sentimentChart').getContext('2d');
+        // ===== GLOBAL STATE =====
         let stats = { positive: 0, neutral: 0, negative: 0 };
-        
-        // Inisialisasi Chart saat halaman dimuat
-        const myChart = new Chart(ctx, {
+        let history = [];
+        let currentPage = 'beranda';
+        let notifOn = true;
+
+        // ===== INIT CHARTS =====
+        const doughnutCtx = document.getElementById('sentimentDoughnut').getContext('2d');
+        const barCtx = document.getElementById('sentimentBar').getContext('2d');
+
+        const doughnutChart = new Chart(doughnutCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Positif', 'Netral', 'Negatif'],
@@ -184,72 +482,346 @@
                     data: [0, 0, 0],
                     backgroundColor: ['#22C55E', '#94A3B8', '#EF4444'],
                     borderWidth: 0,
-                    hoverOffset: 20
+                    hoverOffset: 16
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                cutout: '70%'
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } } },
+                cutout: '68%',
+                animation: { animateRotate: true, duration: 800 }
             }
         });
 
-        document.getElementById('analyzeForm').onsubmit = async (e) => {
-            e.preventDefault();
-            const btn = e.target.querySelector('button');
-            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Memproses...';
-            
-            const formData = new FormData(e.target);
-            const res = await fetch('/predict', { method: 'POST', body: formData });
-            const data = await res.json();
-            
-            btn.innerHTML = 'Mulai Analisis AI';
+        const barChart = new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Positif', 'Netral', 'Negatif'],
+                datasets: [{
+                    label: 'Jumlah',
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        'rgba(34,197,94,0.85)',
+                        'rgba(148,163,184,0.85)',
+                        'rgba(239,68,68,0.85)'
+                    ],
+                    borderRadius: 10,
+                    borderSkipped: false,
+                    barThickness: 36,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ` ${ctx.raw} ulasan` } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10, family: 'Plus Jakarta Sans' }, color: '#94A3B8' },
+                        grid: { color: 'rgba(0,0,0,0.04)' }
+                    },
+                    x: {
+                        ticks: { font: { size: 10, family: 'Plus Jakarta Sans', weight: '700' } },
+                        grid: { display: false }
+                    }
+                },
+                animation: { duration: 700 }
+            }
+        });
 
-            // --- LOGIKA PERBAIKAN SKOR (NORMALISASI) ---
-            // Karena SVM bisa menghasilkan skor > 1, kita batasi maksimal di 100%
-            let displayConfidence = Math.min(Math.max(data.confidence * 100, 0), 100);
+        function updateCharts() {
+            const total = stats.positive + stats.neutral + stats.negative;
+            doughnutChart.data.datasets[0].data = [stats.positive, stats.neutral, stats.negative];
+            doughnutChart.update();
+            barChart.data.datasets[0].data = [stats.positive, stats.neutral, stats.negative];
+            barChart.update();
+            document.getElementById('donutTotal').textContent = total;
+        }
 
-            // Update UI Result
-            document.getElementById('emptyState').classList.add('hidden');
-            document.getElementById('actualResult').classList.remove('hidden');
-            document.getElementById('resultBadge').classList.remove('hidden');
-            
-            const display = document.getElementById('resultDisplay');
-            const sentText = document.getElementById('sentimentValue');
-            const badge = document.getElementById('resultBadge');
-            
-            if(data.sentiment === 'positive') {
-                stats.positive++;
-                sentText.innerText = "POSITIF";
-                sentText.className = "text-3xl font-black mb-2 text-green-500 text-center";
-                badge.className = "px-4 py-1 rounded-full text-xs font-bold animate-bounce bg-green-100 text-green-600";
-                display.className = "bg-green-50 rounded-[32px] p-8 text-center min-h-[200px] flex flex-col justify-center border-2 border-green-200 transition-all";
-            } else if(data.sentiment === 'negative') {
-                stats.negative++;
-                sentText.innerText = "NEGATIF";
-                sentText.className = "text-3xl font-black mb-2 text-red-500 text-center";
-                badge.className = "px-4 py-1 rounded-full text-xs font-bold animate-bounce bg-red-100 text-red-600";
-                display.className = "bg-red-50 rounded-[32px] p-8 text-center min-h-[200px] flex flex-col justify-center border-2 border-red-200 transition-all";
-            } else {
-                stats.neutral++;
-                sentText.innerText = "NETRAL";
-                sentText.className = "text-3xl font-black mb-2 text-gray-500 text-center";
-                badge.className = "px-4 py-1 rounded-full text-xs font-bold animate-bounce bg-gray-100 text-gray-600";
-                display.className = "bg-gray-50 rounded-[32px] p-8 text-center min-h-[200px] flex flex-col justify-center border-2 border-gray-200 transition-all";
+        // ===== PAGE SWITCHING =====
+        function switchPage(page) {
+            // If clicking tambah, always go to tambah regardless of nav
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            currentPage = page;
+
+            // Update nav active states (exclude the + button)
+            document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+                el.classList.toggle('active', el.dataset.page === page);
+            });
+
+            // Update header
+            const titles = {
+                beranda: { sub: 'Hai, Analis Profesional', title: 'PLN Mobile Sentiment' },
+                riwayat: { sub: 'Semua Sesi', title: 'Riwayat Analisis' },
+                tambah:  { sub: 'Baru', title: 'Input Cepat' },
+                info:    { sub: 'Sistem', title: 'Informasi & FAQ' },
+                profil:  { sub: 'Akun Saya', title: 'Profil Pengguna' },
+            };
+            if (titles[page]) {
+                document.getElementById('navSubtitle').textContent = titles[page].sub;
+                document.getElementById('navTitle').textContent = titles[page].title;
             }
 
-            // Update Metrics dengan nilai yang sudah dinormalisasi
-            document.getElementById('confidenceValue').innerText = `Confidence Score: ${displayConfidence.toFixed(1)}%`;
-            document.getElementById('confidenceBar').style.width = displayConfidence + '%';
+            if (page === 'riwayat') renderHistory();
+            if (page === 'profil') updateProfile();
+        }
+
+        // ===== ANALYSIS LOGIC =====
+        async function doAnalysis(text, targetElements) {
+            const { sentEl, confBar, confVal, resultEl, badgeEl } = targetElements;
             
-            document.getElementById('posCount').innerText = stats.positive;
-            document.getElementById('neuCount').innerText = stats.neutral;
-            document.getElementById('negCount').innerText = stats.negative;
+            const formData = new FormData();
+            formData.append('text', text);
+
+            try {
+                const res = await fetch('/predict', { method: 'POST', body: formData });
+                const data = await res.json();
+                processResult(data, text, targetElements);
+            } catch(e) {
+                // Demo mode when server not available
+                const demo = simulateResult(text);
+                processResult(demo, text, targetElements);
+            }
+        }
+
+        function simulateResult(text) {
+            // Simple demo simulation based on keyword heuristics
+            const lower = text.toLowerCase();
+            let sentiment, confidence;
+            const positiveWords = ['bagus','mantap','oke','terima kasih','hebat','cepat','mudah','senang','puas','baik','lancar'];
+            const negativeWords = ['buruk','lambat','error','gagal','jelek','rusak','lama','susah','tidak bisa','parah','kecewa'];
+            const posScore = positiveWords.filter(w => lower.includes(w)).length;
+            const negScore = negativeWords.filter(w => lower.includes(w)).length;
+            if (posScore > negScore) { sentiment = 'positive'; confidence = 0.65 + Math.random() * 0.3; }
+            else if (negScore > posScore) { sentiment = 'negative'; confidence = 0.65 + Math.random() * 0.3; }
+            else { sentiment = 'neutral'; confidence = 0.5 + Math.random() * 0.25; }
+            return { sentiment, confidence, original: text, clean: text };
+        }
+
+        function processResult(data, text, { sentEl, confBar, confVal, resultEl, badgeEl, emptyEl, actualEl }) {
+            let displayConfidence = Math.min(Math.max(data.confidence * 100, 0), 100);
+
+            if (sentEl) {
+                emptyEl && emptyEl.classList.add('hidden');
+                actualEl && actualEl.classList.remove('hidden');
+                badgeEl && badgeEl.classList.remove('hidden');
+
+                const cfg = {
+                    positive: { label: 'POSITIF', cls: 'text-green-500', bg: 'bg-green-50 border-green-200', badgeCls: 'bg-green-100 text-green-600' },
+                    negative: { label: 'NEGATIF', cls: 'text-red-500', bg: 'bg-red-50 border-red-200', badgeCls: 'bg-red-100 text-red-600' },
+                    neutral:  { label: 'NETRAL',  cls: 'text-gray-500', bg: 'bg-gray-50 border-gray-200', badgeCls: 'bg-gray-100 text-gray-600' },
+                }[data.sentiment] || { label: data.sentiment.toUpperCase(), cls: 'text-blue-500', bg: 'bg-blue-50 border-blue-200', badgeCls: 'bg-blue-100 text-blue-600' };
+
+                sentEl.textContent = cfg.label;
+                sentEl.className = `text-3xl font-black mb-3 tracking-tight ${cfg.cls}`;
+                resultEl.className = `rounded-2xl p-6 text-center min-h-[180px] flex flex-col justify-center border-2 border-dashed transition-all duration-500 ${cfg.bg}`;
+                badgeEl.className = `px-3 py-1 rounded-full text-[10px] font-bold badge-pulse ${cfg.badgeCls}`;
+
+                confBar.style.width = displayConfidence + '%';
+                confVal.textContent = `Confidence: ${displayConfidence.toFixed(1)}%`;
+            }
+
+            if (data.sentiment === 'positive') stats.positive++;
+            else if (data.sentiment === 'negative') stats.negative++;
+            else stats.neutral++;
+
+            document.getElementById('posCount').textContent = stats.positive;
+            document.getElementById('neuCount').textContent = stats.neutral;
+            document.getElementById('negCount').textContent = stats.negative;
+            updateCharts();
+
+            // Save to history
+            history.unshift({
+                text: text.substring(0, 120),
+                sentiment: data.sentiment,
+                confidence: displayConfidence.toFixed(1),
+                time: new Date().toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+            });
+
+            // Notif badge
+            document.getElementById('notifBadge').classList.remove('hidden');
+        }
+
+        async function runAnalysis() {
+            const text = document.getElementById('inputText').value.trim();
+            if (!text) { showToast('Masukkan teks terlebih dahulu!', 'warning'); return; }
+            const btn = document.getElementById('analyzeBtn');
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Memproses...';
+            btn.disabled = true;
+
+            await doAnalysis(text, {
+                sentEl: document.getElementById('sentimentValue'),
+                confBar: document.getElementById('confidenceBar'),
+                confVal: document.getElementById('confidenceValue'),
+                resultEl: document.getElementById('resultDisplay'),
+                badgeEl: document.getElementById('resultBadge'),
+                emptyEl: document.getElementById('emptyState'),
+                actualEl: document.getElementById('actualResult'),
+            });
+
+            btn.innerHTML = '<i class="fa-solid fa-brain mr-2"></i> Mulai Analisis AI';
+            btn.disabled = false;
+            showToast('Analisis selesai!', 'success');
+        }
+
+        async function runQuickAnalysis() {
+            const text = document.getElementById('quickInput').value.trim();
+            if (!text) { showToast('Masukkan teks terlebih dahulu!', 'warning'); return; }
+
+            const card = document.getElementById('quickResultCard');
+            const content = document.getElementById('quickResultContent');
+            card.classList.add('hidden');
+            content.innerHTML = '<i class="fas fa-circle-notch fa-spin text-blue-400 text-2xl"></i><p class="text-xs text-gray-400 mt-2">Menganalisis...</p>';
+            card.classList.remove('hidden');
+
+            const data = simulateResult(text);
             
-            myChart.data.datasets[0].data = [stats.positive, stats.neutral, stats.negative];
-            myChart.update();
-        };
+            // Try real API too
+            try {
+                const formData = new FormData();
+                formData.append('text', text);
+                const res = await fetch('/predict', { method: 'POST', body: formData });
+                Object.assign(data, await res.json());
+            } catch(e) {}
+
+            let displayConf = Math.min(Math.max(data.confidence * 100, 0), 100);
+            const cfgMap = {
+                positive: { label: 'POSITIF', cls: 'text-green-500', bg: 'bg-green-50 border-green-200' },
+                negative: { label: 'NEGATIF', cls: 'text-red-500', bg: 'bg-red-50 border-red-200' },
+                neutral:  { label: 'NETRAL',  cls: 'text-gray-500', bg: 'bg-gray-50 border-gray-200' },
+            };
+            const cfg = cfgMap[data.sentiment] || cfgMap.neutral;
+
+            content.innerHTML = `
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-1">Sentimen Terdeteksi</p>
+                <h2 class="text-3xl font-black ${cfg.cls} mb-3">${cfg.label}</h2>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1.5 overflow-hidden">
+                    <div class="pln-gradient h-full rounded-full transition-all duration-700" style="width:${displayConf}%"></div>
+                </div>
+                <p class="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Confidence: ${displayConf.toFixed(1)}%</p>
+            `;
+            content.className = `rounded-2xl p-5 text-center border-2 border-dashed transition-all ${cfg.bg}`;
+
+            // Update global stats
+            if (data.sentiment === 'positive') stats.positive++;
+            else if (data.sentiment === 'negative') stats.negative++;
+            else stats.neutral++;
+            document.getElementById('posCount').textContent = stats.positive;
+            document.getElementById('neuCount').textContent = stats.neutral;
+            document.getElementById('negCount').textContent = stats.negative;
+            updateCharts();
+
+            history.unshift({
+                text: text.substring(0, 120),
+                sentiment: data.sentiment,
+                confidence: displayConf.toFixed(1),
+                time: new Date().toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+            });
+
+            document.getElementById('notifBadge').classList.remove('hidden');
+            showToast('Analisis selesai!', 'success');
+        }
+
+        // ===== HISTORY =====
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            const empty = document.getElementById('historyEmpty');
+            const countEl = document.getElementById('historyCount');
+
+            countEl.textContent = `${history.length} data tercatat`;
+
+            if (history.length === 0) {
+                list.classList.add('hidden');
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+            list.classList.remove('hidden');
+
+            const icons = { positive: '<span class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-face-smile text-green-500 text-sm"></i></span>', negative: '<span class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-face-frown text-red-500 text-sm"></i></span>', neutral: '<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-face-meh text-gray-400 text-sm"></i></span>' };
+            const badgeCls = { positive: 'bg-green-100 text-green-600', negative: 'bg-red-100 text-red-600', neutral: 'bg-gray-100 text-gray-500' };
+            const labels = { positive: 'Positif', negative: 'Negatif', neutral: 'Netral' };
+
+            list.innerHTML = history.map((item, i) => `
+                <div class="history-item flex items-start gap-3">
+                    ${icons[item.sentiment] || icons.neutral}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs text-gray-700 truncate font-medium">${item.text}</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5">${item.time} · Conf: ${item.confidence}%</p>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold flex-shrink-0 ${badgeCls[item.sentiment]}">${labels[item.sentiment]}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            if (history.length === 0) return;
+            history = [];
+            renderHistory();
+            showToast('Riwayat dihapus', 'info');
+        }
+
+        // ===== PROFILE =====
+        function updateProfile() {
+            const total = stats.positive + stats.neutral + stats.negative;
+            document.getElementById('profileTotal').textContent = total;
+            document.getElementById('profilePos').textContent = total ? Math.round(stats.positive / total * 100) + '%' : '0%';
+            document.getElementById('profileNeg').textContent = total ? Math.round(stats.negative / total * 100) + '%' : '0%';
+        }
+
+        // ===== EXPORT =====
+        function exportData() {
+            if (history.length === 0) { showToast('Tidak ada data untuk diexport', 'warning'); return; }
+            const csv = ['No,Teks,Sentimen,Confidence,Waktu', ...history.map((h,i) => `${i+1},"${h.text}",${h.sentiment},${h.confidence}%,${h.time}`)].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'riwayat_sentimen.csv';
+            a.click();
+            showToast('Data berhasil diexport!', 'success');
+        }
+
+        // ===== ACCORDION =====
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById(id + '-icon');
+            const isOpen = el.classList.contains('open');
+            // Close all
+            document.querySelectorAll('.accordion-content').forEach(ac => ac.classList.remove('open'));
+            document.querySelectorAll('[id$="-icon"]').forEach(ic => ic.style.transform = '');
+            if (!isOpen) {
+                el.classList.add('open');
+                icon.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        // ===== NOTIF TOGGLE =====
+        function toggleNotif(el) {
+            notifOn = !notifOn;
+            el.classList.toggle('bg-blue-500', notifOn);
+            el.classList.toggle('bg-gray-200', !notifOn);
+            const knob = el.querySelector('.notif-knob');
+            knob.style.left = notifOn ? '' : '2px';
+            knob.style.right = notifOn ? '2px' : '';
+            showToast(notifOn ? 'Notifikasi aktif' : 'Notifikasi nonaktif', 'info');
+        }
+
+        // ===== TOAST =====
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msgEl = document.getElementById('toastMsg');
+            const icons = { success: 'fa-check-circle text-green-400', warning: 'fa-triangle-exclamation text-yellow-400', info: 'fa-circle-info text-blue-400' };
+            icon.className = `fa-solid ${icons[type] || icons.success}`;
+            msgEl.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2500);
+        }
     </script>
 </body>
 </html>

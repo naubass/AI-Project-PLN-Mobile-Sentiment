@@ -464,22 +464,54 @@
     </div>
 
     <script>
+        // ===== PERSISTENCE =====
+        function saveState() {
+            try {
+                localStorage.setItem('pln_stats', JSON.stringify(stats));
+                localStorage.setItem('pln_history', JSON.stringify(history));
+                localStorage.setItem('pln_notif', JSON.stringify(notifOn));
+            } catch(e) {}
+        }
+
+        function loadState() {
+            try {
+                const s = localStorage.getItem('pln_stats');
+                const h = localStorage.getItem('pln_history');
+                const n = localStorage.getItem('pln_notif');
+                if (s) stats   = JSON.parse(s);
+                if (h) history = JSON.parse(h);
+                if (n) notifOn = JSON.parse(n);
+            } catch(e) {}
+        }
+
         // ===== GLOBAL STATE =====
-        let stats = { positive: 0, neutral: 0, negative: 0 };
+        let stats   = { positive: 0, neutral: 0, negative: 0 };
         let history = [];
         let currentPage = 'beranda';
         let notifOn = true;
 
+        // Load persisted data immediately
+        loadState();
+
         // ===== INIT CHARTS =====
         const doughnutCtx = document.getElementById('sentimentDoughnut').getContext('2d');
         const barCtx = document.getElementById('sentimentBar').getContext('2d');
+
+        // Restore stat counters in DOM immediately
+        document.getElementById('posCount').textContent = stats.positive;
+        document.getElementById('neuCount').textContent = stats.neutral;
+        document.getElementById('negCount').textContent = stats.negative;
+        document.getElementById('donutTotal').textContent = stats.positive + stats.neutral + stats.negative;
+        if (stats.positive + stats.neutral + stats.negative > 0) {
+            document.getElementById('notifBadge').classList.remove('hidden');
+        }
 
         const doughnutChart = new Chart(doughnutCtx, {
             type: 'doughnut',
             data: {
                 labels: ['Positif', 'Netral', 'Negatif'],
                 datasets: [{
-                    data: [0, 0, 0],
+                    data: [stats.positive, stats.neutral, stats.negative],
                     backgroundColor: ['#22C55E', '#94A3B8', '#EF4444'],
                     borderWidth: 0,
                     hoverOffset: 16
@@ -500,7 +532,7 @@
                 labels: ['Positif', 'Netral', 'Negatif'],
                 datasets: [{
                     label: 'Jumlah',
-                    data: [0, 0, 0],
+                    data: [stats.positive, stats.neutral, stats.negative],
                     backgroundColor: [
                         'rgba(34,197,94,0.85)',
                         'rgba(148,163,184,0.85)',
@@ -540,6 +572,7 @@
             barChart.data.datasets[0].data = [stats.positive, stats.neutral, stats.negative];
             barChart.update();
             document.getElementById('donutTotal').textContent = total;
+            saveState(); // persist after every update
         }
 
         // ===== PAGE SWITCHING =====
@@ -642,6 +675,7 @@
                 confidence: displayConfidence.toFixed(1),
                 time: new Date().toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
             });
+            saveState(); // ← persist history setelah setiap analisis
 
             // Notif badge
             document.getElementById('notifBadge').classList.remove('hidden');
@@ -722,6 +756,7 @@
                 confidence: displayConf.toFixed(1),
                 time: new Date().toLocaleString('id-ID', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
             });
+            saveState(); // ← persist history dari quick analysis
 
             document.getElementById('notifBadge').classList.remove('hidden');
             showToast('Analisis selesai!', 'success');
@@ -762,8 +797,14 @@
         function clearHistory() {
             if (history.length === 0) return;
             history = [];
+            stats = { positive: 0, neutral: 0, negative: 0 };
+            document.getElementById('posCount').textContent = 0;
+            document.getElementById('neuCount').textContent = 0;
+            document.getElementById('negCount').textContent = 0;
+            updateCharts();
             renderHistory();
-            showToast('Riwayat dihapus', 'info');
+            saveState();
+            showToast('Riwayat & statistik dihapus', 'info');
         }
 
         // ===== PROFILE =====
@@ -808,6 +849,7 @@
             const knob = el.querySelector('.notif-knob');
             knob.style.left = notifOn ? '' : '2px';
             knob.style.right = notifOn ? '2px' : '';
+            saveState();
             showToast(notifOn ? 'Notifikasi aktif' : 'Notifikasi nonaktif', 'info');
         }
 
